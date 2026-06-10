@@ -16,14 +16,12 @@ app.post('/webhook', middleware(config), async (req, res) => {
   const userText = req.body.events[0].message.text;
   
   try {
-    // 改用更通用的 model 指定方式
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `請解析以下文字，輸出 JSON 格式 (欄位: 客戶姓名, 項目名稱, 數量, 單價)。若欄位缺失請填0或無。文字: ${userText}`;
+    // 改用更直觀的呼叫方式
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
     
     const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson);
+    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
     
     await notion.pages.create({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
@@ -35,9 +33,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
         "品項1-單價": { number: parseInt(data.單價) || 0 }
       }
     });
-    console.log("AI 成功解析並寫入:", data);
   } catch (error) {
-    console.error("AI 嚴重錯誤:", error.message);
+    console.error("AI 處理錯誤:", error);
   }
   res.status(200).send('OK');
 });
