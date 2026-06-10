@@ -1,8 +1,4 @@
-const express = require('express');
 const axios = require('axios');
-
-const app = express();
-app.use(express.json());
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
@@ -56,7 +52,10 @@ function replyToLine(userId, message) {
   axios.post("https://api.line.biz/v2/bot/message/push", {to: userId, messages: [{type: "text", text: message}]}, {headers: {"Authorization": `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`, "Content-Type": "application/json"}}).catch(err => console.error("LINE 回覆錯誤:", err.message));
 }
 
-app.post('/', async (req, res) => {
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(200).send("OK");
+  }
   try {
     const body = req.body;
     if (!body.events || body.events.length === 0) return res.status(200).send("OK");
@@ -82,6 +81,4 @@ app.post('/', async (req, res) => {
     console.error("處理錯誤:", error);
     res.status(200).send("OK");
   }
-});
-
-export default app;
+}
