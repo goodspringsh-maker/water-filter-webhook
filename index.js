@@ -7,7 +7,7 @@ const app = express();
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 使用 gemini-1.5-flash，這是目前免費且最穩定的模型
+// 使用您帳號當前支援的 gemini-2.5-flash
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 const config = {
@@ -19,7 +19,7 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
   const userText = req.body.events[0].message.text;
   
   try {
-    const prompt = `請將以下文字解析為 JSON 格式 {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
+    const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const data = JSON.parse(text.replace(/```json|```/g, '').trim());
@@ -34,8 +34,9 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
         "品項1-單價": { number: parseInt(data.單價) || 0 }
       }
     });
+    console.log("AI 成功解析並寫入:", data);
   } catch (error) {
-    console.error("AI 解析錯誤，請檢查 Google AI Studio 是否已啟用 gemini-1.5-flash:", error);
+    console.error("AI 解析失敗:", error);
   }
   res.status(200).send('OK');
 });
