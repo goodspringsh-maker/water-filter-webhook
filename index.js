@@ -1,16 +1,41 @@
-try {
+import express from 'express';
+import * as line from '@line/bot-sdk';
+import { Client } from '@notionhq/client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const app = express();
+const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const config = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
+};
+
+app.post('/webhook', line.middleware(config), async (req, res) => {
+  const userText = req.body.events[0].message.text;
+  
+  try {
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const prompt = `請將以下文字解析為 JSON 格式 {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
+    const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
     
     const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    console.log("AI 回傳內容:", text); // 加上這行來檢查 AI 到底回傳了什麼
+    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
     
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson);
-    
-    // ... 後續寫入 Notion 的程式碼保持不變
+    await notion.pages.create({
+      parent: { database_id: process.env.NOTION_DATABASE_ID },
+      properties: {
+        "出貨單號": { title: [{ text: { content: "AI-" + Date.now().toString().slice(-4) } }] },
+        "客戶名稱": { rich_text: [{ text: { content: data.客戶姓名 || "無" } }] },
+        "品項1-耗材名稱": { rich_text: [{ text: { content: data.項目名稱 || "無" } }] },
+        "品項1-數量": { number: parseInt(data.數量) || 0 },
+        "品項1-單價": { number: parseInt(data.單價) || 0 }
+      }
+    });
   } catch (error) {
-    console.error("AI 錯誤細節:", error); // 這裡會幫我們抓出是哪一行解析失敗
-    // ... 原本的備份寫入區塊
+    console.error("AI 解析錯誤:", error);
   }
+  res.status(200).send('OK');
+});
+
+app.listen(process.env.PORT || 10000);
