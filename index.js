@@ -19,16 +19,17 @@ app.post('/webhook', middleware(config), async (req, res) => {
   try {
     // 1. 使用 Gemini 解析文字
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `請將以下文字轉為 JSON 格式，包含: 客戶姓名, 日期(YYYY-MM-DD), 項目名稱, 數量, 單價。文字: ${userText}`;
+    const prompt = `請將以下文字轉為 JSON 格式 (欄位: 客戶姓名, 日期, 項目名稱, 數量, 單價)。文字: ${userText}`;
     const result = await model.generateContent(prompt);
     const jsonStr = result.response.text().replace(/```json/g, '').replace(/```/g, '');
     const data = JSON.parse(jsonStr);
+    console.log("AI 解析結果:", data);
 
     // 2. 寫入 Notion
     await notion.pages.create({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
-        "出貨單號": { title: [{ text: { content: "自動單-" + Date.now().toString().slice(-4) } }] },
+        "出貨單號": { title: [{ text: { content: "自動-" + Date.now().toString().slice(-4) } }] },
         "出貨日期": { date: { start: data.日期 || new Date().toISOString().split('T')[0] } },
         "客戶名稱": { rich_text: [{ text: { content: data.客戶姓名 || "未知" } }] },
         "品項1-耗材名稱": { rich_text: [{ text: { content: data.項目名稱 || "無" } }] }
@@ -42,4 +43,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-app.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`伺服器成功啟動在 port ${PORT}`);
+});
