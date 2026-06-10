@@ -1,13 +1,10 @@
 {
   "name": "water-filter-webhook",
   "version": "1.0.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-"dependencies": {
+  "main": "index.js",
+  "dependencies": {
     "express": "^4.17.1",
-    "@line/bot-sdk": "^9.5.0"
+    "@line/bot-sdk": "^9.5.0",
+    "@notionhq/client": "^2.2.14"
   }
 }
