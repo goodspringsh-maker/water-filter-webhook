@@ -5,6 +5,7 @@
   "dependencies": {
     "express": "^4.17.1",
     "@line/bot-sdk": "^9.5.0",
-    "@notionhq/client": "^2.2.14"
+    "@notionhq/client": "^2.2.14",
+    "@google/generative-ai": "^0.1.3"
   }
 }
