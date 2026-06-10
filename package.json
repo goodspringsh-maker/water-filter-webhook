@@ -2,6 +2,7 @@
   "name": "water-filter-webhook",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "express": "^4.17.1",
     "@line/bot-sdk": "^9.5.0",
