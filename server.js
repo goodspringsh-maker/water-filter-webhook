@@ -1,6 +1,5 @@
 export default function handler(req, res) {
-  if (req.url === '/api/webhook') {
-    return res.status(404).send("Not Found");
-  }
-  res.status(200).send("OK");
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/plain');
+  res.end('OK');
 }
