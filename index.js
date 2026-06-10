@@ -7,8 +7,8 @@ const app = express();
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 指定使用 gemini-2.5-flash
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+// 改回 gemini-1.5-flash，這是目前最穩定且免費的正式模型
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -17,16 +17,15 @@ const config = {
 
 app.post('/webhook', line.middleware(config), async (req, res) => {
   const userText = req.body.events[0].message.text;
-  console.log("收到訊息:", userText);
-
-  // 封裝重試邏輯的 AI 呼叫函數
-  const callAIWithRetry = async (prompt, retries = 2) => {
+  
+  const callAIWithRetry = async (prompt, retries = 3) => {
     try {
       return await model.generateContent(prompt);
     } catch (error) {
-      if (retries > 0 && (error.status === 503 || error.message.includes("503"))) {
-        console.log(`伺服器忙碌，等待 2 秒後重試...剩餘次數: ${retries}`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      if (retries > 0) {
+        // 等待時間從 2 秒加長到 4 秒，避開流量尖峰
+        console.log(`伺服器忙碌，4 秒後重試...剩餘次數: ${retries}`);
+        await new Promise(resolve => setTimeout(resolve, 4000));
         return callAIWithRetry(prompt, retries - 1);
       }
       throw error;
@@ -34,7 +33,7 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
   };
 
   try {
-    const prompt = `請將此訊息解析為 JSON，格式必須為: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
+    const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
     const result = await callAIWithRetry(prompt);
     const text = result.response.text();
     const data = JSON.parse(text.replace(/```json|```/g, '').trim());
@@ -49,12 +48,11 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
         "品項1-單價": { number: parseInt(data.單價) || 0 }
       }
     });
-    console.log("Notion 寫入成功:", data);
+    console.log("Notion 寫入成功");
   } catch (error) {
-    console.error("處理失敗:", error.message);
+    console.error("最終 AI 解析失敗:", error.message);
   }
   res.status(200).send('OK');
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`伺服器啟動在 port ${PORT}`));
+app.listen(process.env.PORT || 10000);
