@@ -1,4 +1,6 @@
-// Vercel 入口點 - API 路由在 api/ 資料夾中
-module.exports = (req, res) => {
+export default function handler(req, res) {
+  if (req.url === '/api/webhook') {
+    return res.status(404).send("Not Found");
+  }
   res.status(200).send("OK");
-};
+}
