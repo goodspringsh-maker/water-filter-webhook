@@ -16,7 +16,7 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
   const userText = req.body.events[0].message.text;
   
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
     
     const result = await model.generateContent(prompt);
