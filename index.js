@@ -16,12 +16,14 @@ app.post('/webhook', middleware(config), async (req, res) => {
   const userText = req.body.events[0].message.text;
   
   try {
-    // 這次改用 gemini-1.5-flash，這是目前最穩定且免費的版本
+    // 改用更通用的 model 指定方式
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `請將以下文字轉為 JSON (必須包含: 客戶姓名, 項目名稱, 數量, 單價)。若有多個項目，請只取第一個。文字: ${userText}`;
+    const prompt = `請解析以下文字，輸出 JSON 格式 (欄位: 客戶姓名, 項目名稱, 數量, 單價)。若欄位缺失請填0或無。文字: ${userText}`;
     
     const result = await model.generateContent(prompt);
-    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+    const text = result.response.text();
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(cleanJson);
     
     await notion.pages.create({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
@@ -29,19 +31,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
         "出貨單號": { title: [{ text: { content: "AI-" + Date.now().toString().slice(-4) } }] },
         "客戶名稱": { rich_text: [{ text: { content: data.客戶姓名 || "無" } }] },
         "品項1-耗材名稱": { rich_text: [{ text: { content: data.項目名稱 || "無" } }] },
-        "品項1-數量": { number: Number(data.數量) || 0 },
-        "品項1-單價": { number: Number(data.單價) || 0 }
+        "品項1-數量": { number: parseInt(data.數量) || 0 },
+        "品項1-單價": { number: parseInt(data.單價) || 0 }
       }
     });
+    console.log("AI 成功解析並寫入:", data);
   } catch (error) {
-    console.error("AI 解析失敗:", error);
-    await notion.pages.create({
-      parent: { database_id: process.env.NOTION_DATABASE_ID },
-      properties: {
-        "出貨單號": { title: [{ text: { content: "原始-" + Date.now().toString().slice(-4) } }] },
-        "客戶名稱": { rich_text: [{ text: { content: userText.slice(0, 50) } }] }
-      }
-    });
+    console.error("AI 嚴重錯誤:", error.message);
   }
   res.status(200).send('OK');
 });
