@@ -8,7 +8,7 @@ const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // 這是目前最常見的穩定模型名稱，請確認這行代碼
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
