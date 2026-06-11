@@ -1,13 +1,3 @@
-let lastRequestTime = 0;
-const rateLimit = 15000; // 強制每 15 秒才能發送一次請求，確保絕不超額
-
-// 在 app.post 內的最上方加入：
-const now = Date.now();
-if (now - lastRequestTime < rateLimit) {
-  console.log("偵測到請求過快，自動忽略或稍後再試...");
-  return res.status(429).send('Too many requests, please wait.');
-}
-lastRequestTime = now;
 import express from 'express';
 import * as line from '@line/bot-sdk';
 import { Client } from '@notionhq/client';
@@ -16,9 +6,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const app = express();
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-// 這是目前最常見的穩定模型名稱，請確認這行代碼
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// 簡單的限流變數
+let lastRequestTime = 0;
 
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -26,14 +17,19 @@ const config = {
 };
 
 app.post('/webhook', line.middleware(config), async (req, res) => {
+  // 限流機制：若距離上次請求小於 15 秒，直接回覆忙碌中
+  if (Date.now() - lastRequestTime < 15000) {
+    console.log("請求過快，自動跳過");
+    return res.status(200).send('OK'); 
+  }
+  lastRequestTime = Date.now();
+
   const userText = req.body.events[0].message.text;
-  
+
   try {
     const prompt = `請將此訊息解析為 JSON: {"客戶姓名": "...", "項目名稱": "...", "數量": 0, "單價": 0}。文字: ${userText}`;
-    
     const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const data = JSON.parse(text.replace(/```json|```/g, '').trim());
+    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
     
     await notion.pages.create({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
@@ -45,9 +41,9 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
         "品項1-單價": { number: parseInt(data.單價) || 0 }
       }
     });
-    console.log("Notion 寫入成功:", data);
+    console.log("AI 成功解析並寫入");
   } catch (error) {
-    console.error("解析失敗，錯誤原因:", error.message);
+    console.error("處理失敗:", error.message);
   }
   res.status(200).send('OK');
 });
