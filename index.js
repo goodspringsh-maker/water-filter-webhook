@@ -1,3 +1,13 @@
+let lastRequestTime = 0;
+const rateLimit = 15000; // 強制每 15 秒才能發送一次請求，確保絕不超額
+
+// 在 app.post 內的最上方加入：
+const now = Date.now();
+if (now - lastRequestTime < rateLimit) {
+  console.log("偵測到請求過快，自動忽略或稍後再試...");
+  return res.status(429).send('Too many requests, please wait.');
+}
+lastRequestTime = now;
 import express from 'express';
 import * as line from '@line/bot-sdk';
 import { Client } from '@notionhq/client';
